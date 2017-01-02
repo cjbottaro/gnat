@@ -138,11 +138,6 @@ defmodule Gnat.Connection do
     {:reply, :ok, state}
   end
 
-  def handle_call({:deliver_to, dst}, _from, state) do
-    Enum.each(state.msgs, fn msg -> send(dst, {:nats_msg, msg}) end)
-    {:reply, :ok, %{state | deliver_to: dst, msgs: []}}
-  end
-
   def handle_call(:next_msg, _from, state) do
     %{msgs: msgs} = state
     msg = List.last(msgs)

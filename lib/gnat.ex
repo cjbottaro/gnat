@@ -33,10 +33,6 @@ defmodule Gnat do
     GenServer.call(pid, {:transmit, raw_message})
   end
 
-  def deliver_to(pid, dst) do
-    GenServer.call(pid, {:deliver_to, dst})
-  end
-
   def req_res(pid, subject, payload) do
     sid = new_sid
     temp_inbox = "req_res.#{sid}"
