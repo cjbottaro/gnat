@@ -89,6 +89,9 @@ defmodule Gnat.Connection do
     {:noreply, state}
   end
 
+  # If req_res has key sid, then the Msg is a part of a req/res cycle.
+  # If req_res[sid] is nil, then no one is waiting on the result yet,
+  # otherwise the value is the waiter.
   def handle_message(%Msg{} = msg, state) do
     %{req_res: req_res} = state
     %{sid: sid} = msg
@@ -111,20 +114,14 @@ defmodule Gnat.Connection do
     end
   end
 
-  def handle_call({:transmit, raw_message}, _from, state) do
-    transmit(raw_message, state.socket)
-    {:reply, :ok, state}
-  end
-
-  def handle_call({:deliver_to, dst}, _from, state) do
-    Enum.each(state.msgs, fn msg -> send(dst, {:nats_msg, msg}) end)
-    {:reply, :ok, %{state | deliver_to: dst, msgs: []}}
-  end
-
-  def handle_call({:request, sid}, from, state) do
+  # Mark the sid as a part of a req/res cycle.
+  # See comment on handle_message(%Msg{}, state).
+  def handle_call({:request, sid}, _from, state) do
     {:reply, :ok, put_in(state, [:req_res, sid], nil)}
   end
 
+  # Return the response of a req/res cycle, or block if it's not ready.
+  # See comment on handle_message(%Msg{}, state).
   def handle_call({:response, sid}, from, state) do
     %{req_res: req_res} = state
 
@@ -134,6 +131,16 @@ defmodule Gnat.Connection do
     else
       {:noreply, put_in(state, [:req_res, sid], from)}
     end
+  end
+
+  def handle_call({:transmit, raw_message}, _from, state) do
+    transmit(raw_message, state.socket)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:deliver_to, dst}, _from, state) do
+    Enum.each(state.msgs, fn msg -> send(dst, {:nats_msg, msg}) end)
+    {:reply, :ok, %{state | deliver_to: dst, msgs: []}}
   end
 
   def handle_call(:next_msg, _from, state) do
@@ -146,13 +153,6 @@ defmodule Gnat.Connection do
   defp transmit(raw_message, socket) do
     Logger.debug "->> #{raw_message}"
     :gen_tcp.send(socket, "#{raw_message}\r\n")
-  end
-
-  defp clear_req_res(state, sid) do
-    %{req_res_waiters: waiters, req_res_payloads: payloads} = state
-    waiters = Map.delete(waiters, sid)
-    payloads = Map.delete(payloads, sid)
-    %{state | req_res_waiters: waiters, req_res_payloads: payloads}
   end
 
 end
