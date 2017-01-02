@@ -26,15 +26,9 @@ defmodule Gnat.Proto do
     "PUB #{subject} #{reply_to} #{bytes}\r\n#{payload}"
   end
 
-  def sub(options \\ []) do
-    sid = options[:sid] || Gnat.new_sid
-    subject = cond do
-      s = options[:subject] -> s
-      p = options[:prefix] -> "#{p}.#{sid}"
-      true -> raise ArgumentError, "subject or prefix required"
-    end
+  def sub(subject, sid, options \\ []) do
     queue_group = options[:queue_group]
-    {subject, sid, "SUB #{subject} #{queue_group} #{sid}"}
+    "SUB #{subject} #{queue_group} #{sid}"
   end
 
   def unsub(sid, options \\ []) do

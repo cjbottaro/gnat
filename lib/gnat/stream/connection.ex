@@ -2,7 +2,6 @@ require Logger
 
 defmodule Gnat.Stream.Connection do
   use Connection
-  use Gnat.Stream.Handshake
 
   alias Gnat.Stream.Proto
   alias Proto.{Heartbeat, ConnectResponse, SubscriptionResponse, MsgProto, PubAck}
@@ -13,63 +12,66 @@ defmodule Gnat.Stream.Connection do
   end
 
   def init(options) do
-    {:ok, conn} = Gnat.start_link(options)
-    Gnat.deliver_to(conn, self)
+    {:ok, conn} = Gnat.start_link(Keyword.put(options, :deliver_to, self))
 
-    state = options
-      |> Enum.into(%{})
-      |> Map.merge(%{
-        conn: conn,
-        connected: false,
-        subscriptions: %{},
-        msg_protos: [],
-        connect_waiter: nil,
-        pub_ack_waiters: %{}
-      })
+    options = Enum.into(options, %{})
+    %{
+      client_id: client_id,
+      cluster_id: cluster_id,
+      discover_prefix: discover_prefix
+    } = options
 
-    {:connect, nil, state}
-  end
+    # Setup and subscribe to heartbeat inbox.
+    sid = Gnat.new_sid
+    heart_inbox = "Heartbeat.#{sid}"
+    :ok = Gnat.sub(conn, heart_inbox, sid)
 
-  def terminate(reason, %{connected: true} = state) do
-    %{conn: conn, client_id: client_id} = state
-    if state.close_requests do
-      Logger.debug "->> CloseRequest"
-      Gnat.pub(conn, state.close_requests, Proto.close_request(client_id))
+    # Make the connection request syncronously.
+    Logger.debug "->> ConnectRequest"
+    connect_request = Proto.connect_request(clientID: client_id, heartbeatInbox: heart_inbox)
+    {:ok, nats_msg} = Gnat.req_res(conn, "#{discover_prefix}.#{cluster_id}", connect_request)
+    response = ConnectResponse.new(nats_msg)
+    connect_attributes = %{
+      close_requests: response.close_requests,
+      pub_prefix: response.pub_prefix,
+      sub_close_requests: response.sub_close_requests,
+      sub_requests: response.sub_requests,
+      unsub_requests: response.unsub_requests
+    }
+    Logger.debug "<<- ConnectResponse"
+
+    if response.error do
+      GenServer.stop(conn)
+      {:error, response.error}
+    else
+      state = options
+        |> Map.merge(connect_attributes)
+        |> Map.merge(%{
+          conn: conn,
+          subscriptions: %{},
+          msg_protos: []
+        })
+
+      {:connect, nil, state}
     end
-    terminate(reason, %{state | connected: false})
   end
+
   def terminate(_, state) do
+    %{
+      conn: conn,
+      client_id: client_id,
+      close_requests: close_requests
+    } = state
+    close_request = Proto.close_request(client_id)
+    {:ok, _} = Gnat.req_res(conn, close_requests, close_request)
     GenServer.stop(state.conn)
   end
 
   def connect(_info, state) do
-    %{
-      conn: conn,
-      client_id: client_id,
-      cluster_id: cluster_id,
-      discover_prefix: discover_prefix,
-    } = state
-
-    {:ok, heart_inbox, _sid} = Gnat.sub(conn, prefix: "Heartbeat")
-
-    connect_request = Proto.connect_request(clientID: client_id, heartbeatInbox: heart_inbox)
-
-    Gnat.req_res(conn,
-      send_to: "#{discover_prefix}.#{cluster_id}",
-      recv_at_prefix: "ConnectResponse",
-      payload: connect_request
-    )
-
-    Logger.debug "->> ConnectRequest"
-
     {:ok, state}
   end
 
-  def handle_call(:shutdown, _from, state) do
-    {:stop, :normal, state}
-  end
-
-  def handle_call({:subscribe, topic, options}, from, state) do
+  def handle_call({:subscribe, topic, options}, _from, state) do
     %{
       conn: conn,
       client_id: client_id,
@@ -77,21 +79,23 @@ defmodule Gnat.Stream.Connection do
       subscriptions: subscriptions
     } = state
 
-    subscription = Subscription.new(topic: topic, blocker: from)
-    subscription_request = Proto.subscription_request(subscription, client_id, options)
-
     # Subscribe to subscription's inbox.
-    Gnat.sub(conn, subject: subscription.inbox, sid: subscription.inbox_sid)
+    subscription = Subscription.new(topic: topic)
+    Gnat.sub(conn, subscription.inbox, subscription.inbox_sid)
 
     # Make the subscription request.
-    Gnat.req_res(conn, send_to: sub_requests, recv_at: subscription.response_inbox, payload: subscription_request)
     Logger.debug "->> SubscriptionRequest (#{topic})"
+    subscription_request = Proto.subscription_request(subscription, client_id, options)
+    {:ok, nats_msg} = Gnat.req_res(conn, sub_requests, subscription_request)
+    response = SubscriptionResponse.new(nats_msg)
+    subscription = put_in(subscription.ack_inbox, response.ack_inbox)
+    Logger.debug "<<- SubscriptionResponse (#{topic})"
 
     # Record the subscription so we can match it up to the SubscriptionResponse.
-    subscriptions = Map.put(subscriptions, topic, subscription)
+    subscriptions = put_in(subscriptions, [topic], subscription)
 
     # :noreply so that the caller is blocked until we get the SubscriptionResponse.
-    {:noreply, %{state | subscriptions: subscriptions}}
+    {:reply, :ok, %{state | subscriptions: subscriptions}}
   end
 
   def handle_call(:next_msg, _from, state) do
@@ -109,7 +113,7 @@ defmodule Gnat.Stream.Connection do
 
     # Send the ack.
     ack_payload = Proto.ack(msg_proto.subject, msg_proto.sequence)
-    Gnat.pub(conn, subscription.ack_outbox, ack_payload)
+    Gnat.pub(conn, subscription.ack_inbox, ack_payload)
 
     # Log something nice.
     Logger.debug "->> Ack (#{msg_proto.subject}, #{msg_proto.sequence})"
@@ -117,7 +121,7 @@ defmodule Gnat.Stream.Connection do
     {:reply, :ok, state}
   end
 
-  def handle_call({:publish, topic, data, options}, from, state) do
+  def handle_call({:publish, topic, data, options}, _from, state) do
     %{
       conn: conn,
       pub_prefix: pub_prefix,
@@ -128,26 +132,22 @@ defmodule Gnat.Stream.Connection do
     Logger.debug "->> PubMsg (#{topic}): #{data}"
 
     # Generate out payload.
-    {guid, pub_msg} = Proto.pub_msg(client_id, topic, data)
+    {_guid, pub_msg} = Proto.pub_msg(client_id, topic, data)
 
     # NATS subject... I think this is right.
     nats_subject = "#{pub_prefix}.#{topic}"
 
     if options[:ack] do
       # Request/response because we want the ack.
-      Gnat.req_res(conn, send_to: nats_subject, recv_at_prefix: "PubAck", payload: pub_msg)
-
-      # Update our pub ack waiters.
-      %{pub_ack_waiters: pub_ack_waiters} = state
-      pub_ack_waiters = Map.put(pub_ack_waiters, guid, from)
-
-      {:noreply, %{state | pub_ack_waiters: pub_ack_waiters}}
+      {:ok, nats_msg} = Gnat.req_res(conn, nats_subject, pub_msg)
+      ack = PubAck.new(nats_msg)
+      Logger.debug("<<- PubAck (#{ack.guid})")
     else
-      # Send the publish message without a reply to.
+      # Send the publish message without waiting for an ack.
       Gnat.pub(conn, nats_subject, pub_msg)
-
-      {:reply, :ok, state}
     end
+
+    {:reply, :ok, state}
   end
 
   def handle_info({:nats_msg, nats_msg}, state) do
@@ -161,30 +161,6 @@ defmodule Gnat.Stream.Connection do
     {:noreply, state}
   end
 
-  def handle_message(%SubscriptionResponse{} = response, state) do
-    # Make some local vars.
-    %{subscriptions: subscriptions} = state
-
-    # Find the subscription.
-    {_, subscription} = Enum.find(subscriptions, fn {_, subscription} ->
-      response.nats_msg.subject == subscription.response_inbox
-    end)
-
-    # Log something nice.
-    Logger.debug "<<- SubscriptionResponse (#{subscription.topic})"
-
-    # Record in our subscription where to send acks.
-    subscription = Map.put(subscription, :ack_outbox, response.ack_inbox)
-
-    # Update our subscriptions.
-    subscriptions = %{subscriptions | subscription.topic => subscription}
-
-    # Notify the caller (who is blocking).
-    GenServer.reply(subscription.blocker, :ok)
-
-    {:noreply, %{state | subscriptions: subscriptions}}
-  end
-
   def handle_message(%MsgProto{} = msg_proto, state) do
     Logger.debug "<<- MsgProto (#{msg_proto.subject}): #{msg_proto.data}"
     if state.deliver_to do
@@ -195,22 +171,6 @@ defmodule Gnat.Stream.Connection do
       msg_protos = [msg_proto | msg_protos]
       {:noreply, %{state | msg_protos: msg_protos}}
     end
-  end
-
-  def handle_message(%PubAck{} = pub_ack, state) do
-    %{pub_ack_waiters: pub_ack_waiters} = state
-    %{guid: guid} = pub_ack
-
-    # Log something nice.
-    Logger.debug "<<- PubAck (#{guid})"
-
-    # Get the waiter and update our waiters.
-    {waiter, pub_ack_waiters} = Map.pop(pub_ack_waiters, guid)
-
-    # Unblock them!
-    GenServer.reply(waiter, :ok)
-
-    {:noreply, %{state | pub_ack_waiters: pub_ack_waiters}}
   end
 
 end

@@ -1,7 +1,7 @@
 defmodule Gnat.Stream.Proto do
 
   alias Gnat.Stream.Protobuf
-  alias __MODULE__.{Heartbeat, ConnectResponse, SubscriptionResponse, MsgProto, PubAck}
+  alias __MODULE__.{Heartbeat, MsgProto}
 
   defmacro __using__(_) do
     quote do
@@ -44,14 +44,8 @@ defmodule Gnat.Stream.Proto do
     cond do
       subject_prefix?(nats_msg, "Heartbeat") ->
         Heartbeat.new(nats_msg)
-      subject_prefix?(nats_msg, "ConnectResponse") ->
-        ConnectResponse.new(nats_msg)
-      subject_prefix?(nats_msg, "SubscriptionResponse") ->
-        SubscriptionResponse.new(nats_msg)
       subject_prefix?(nats_msg, "MsgProto") ->
         MsgProto.new(nats_msg)
-      subject_prefix?(nats_msg, "PubAck") ->
-        PubAck.new(nats_msg)
     end
   end
 
@@ -83,7 +77,7 @@ defmodule Gnat.Stream.Proto do
 
   def pub_msg(client_id, subject, data, options \\ []) do
     alias Protobuf.PubMsg
-    guid = SecureRandom.hex(15) # Anything longer will cause a PubAck protobuf message that won't parse.
+    guid = SecureRandom.hex(8) # Anything longer will cause a PubAck protobuf message that won't parse.
     pub_msg = PubMsg.new(
       clientID: client_id,
       guid: guid,

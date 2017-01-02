@@ -1,5 +1,5 @@
 defmodule Gnat.Stream.Subscription do
-  defstruct [:topic, :inbox, :inbox_sid, :response_inbox, :ack_outbox, :blocker]
+  defstruct [:topic, :inbox, :inbox_sid, :ack_inbox]
 
   alias Gnat.Stream.Protobuf.{StartPosition}
 
@@ -7,9 +7,7 @@ defmodule Gnat.Stream.Subscription do
 
   def new(attributes \\ []) do
     attributes = Keyword.put_new(attributes, :inbox_sid, new_sid)
-    attributes = attributes
-      |> Keyword.put_new(:inbox, "MsgProto.#{attributes[:inbox_sid]}")
-      |> Keyword.put_new(:response_inbox, "SubscriptionResponse.#{new_sid}")
+    attributes = Keyword.put_new(attributes, :inbox, "MsgProto.#{attributes[:inbox_sid]}")
     struct!(__MODULE__, attributes)
   end
 

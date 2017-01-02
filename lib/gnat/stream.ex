@@ -10,10 +10,7 @@ defmodule Gnat.Stream do
   ]
   def start_link(options \\ []) do
     options = Keyword.merge(@defaults, options)
-    case Gnat.Stream.Connection.start_link(options) do
-      {:ok, pid} -> stream_connect_protocol(pid)
-      res -> res
-    end
+    Gnat.Stream.Connection.start_link(options)
   end
 
   @defaults [
@@ -40,22 +37,6 @@ defmodule Gnat.Stream do
   def publish(pid, topic, data, options \\ []) do
     options = Keyword.merge(@defaults, options)
     GenServer.call(pid, {:publish, topic, data, options}, :infinity)
-  end
-
-  defp stream_connect_protocol(pid) do
-    try do
-      case GenServer.call(pid, :wait_connect) do
-        {:error, _} = res ->
-          IO.puts "stopping"
-          GenServer.stop(pid)
-          res
-        res -> res
-      end
-    catch
-      :exit, _ ->
-        GenServer.stop(pid)
-        {:error, :timeout}
-    end
   end
 
 end
