@@ -36,7 +36,7 @@ defmodule Gnat.Stream do
   ]
   def publish(pid, topic, data, options \\ []) do
     options = Keyword.merge(@defaults, options)
-    GenServer.call(pid, {:publish, topic, data, options}, :infinity)
+    GenServer.call(pid, {:publish, topic, data, options})
   end
 
 end
