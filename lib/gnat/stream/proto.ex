@@ -87,7 +87,7 @@ defmodule Gnat.Stream.Proto do
 
   def pub_msg(client_id, subject, data, options \\ []) do
     alias Protobuf.PubMsg
-    guid = SecureRandom.hex(8) # Anything longer will cause a PubAck protobuf message that won't parse.
+    guid = SecureRandom.uuid
     pub_msg = PubMsg.new(
       clientID: client_id,
       guid: guid,

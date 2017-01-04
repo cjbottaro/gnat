@@ -40,7 +40,7 @@ defmodule Gnat.Stream.Connection do
     }
     Logger.debug "<<- ConnectResponse"
 
-    if response.error do
+    if String.length(response.error) != 0 do
       GenServer.stop(conn)
       {:stop, response.error}
     else
