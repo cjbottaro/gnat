@@ -57,7 +57,7 @@ defmodule Gnat.Stream do
     discover_prefix: "_STAN.discover",
     deliver_to: nil
   ]
-  @spec start_link(Keyword.t) :: {:ok, conn} | {:error, atom}
+  @spec start_link(Keyword.t) :: {:ok, conn} | {:error, String.t}
   def start_link(options \\ []) do
     options = Keyword.merge(@defaults, options)
     Gnat.Stream.Connection.start_link(options)
@@ -158,4 +158,16 @@ defmodule Gnat.Stream do
     GenServer.call(conn, {:publish, topic, data, options})
   end
 
+end
+
+defmodule Foo do
+  use GenServer
+
+  def start_link do
+    GenServer.start_link(__MODULE__, nil)
+  end
+
+  def init(_) do
+    {:stop, "blah"}
+  end
 end

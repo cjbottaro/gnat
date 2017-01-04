@@ -3,14 +3,12 @@ require Logger
 defmodule Gnat.Stream.Connection do
   @moduledoc false
 
-  use Connection
-
   alias Gnat.Stream.Proto
   alias Proto.{Heartbeat, ConnectResponse, SubscriptionResponse, MsgProto, PubAck}
   alias Gnat.Stream.Subscription
 
   def start_link(options) do
-    Connection.start_link(__MODULE__, options)
+    GenServer.start_link(__MODULE__, options)
   end
 
   def init(options) do
@@ -44,7 +42,7 @@ defmodule Gnat.Stream.Connection do
 
     if response.error do
       GenServer.stop(conn)
-      {:error, response.error}
+      {:stop, response.error}
     else
       state = options
         |> Map.merge(connect_attributes)
@@ -53,8 +51,7 @@ defmodule Gnat.Stream.Connection do
           subscriptions: %{},
           msg_protos: []
         })
-
-      {:connect, nil, state}
+      {:ok, state}
     end
   end
 
@@ -67,10 +64,6 @@ defmodule Gnat.Stream.Connection do
     close_request = Proto.close_request(client_id)
     {:ok, _} = Gnat.req_res(conn, close_requests, close_request)
     GenServer.stop(state.conn)
-  end
-
-  def connect(_info, state) do
-    {:ok, state}
   end
 
   def handle_call({:subscribe, topic, options}, _from, state) do

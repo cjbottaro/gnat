@@ -38,7 +38,6 @@ defmodule Gnat do
     * `:host` - Host to connect to. Default `"localhost"`
     * `:port` - Port to connect to. Default `4222`
     * `:cluster_id` - Name of cluster. Default `"test-cluster"`
-    * `:client_id` - Each connection should have a unique id. Default `"gnat"`
     * `:deliver_to` - Pid where messages (MSG) should be delivered. Default `nil`
 
   If `:deliver_to` is nil, then messages will be collected in an internal buffer
@@ -58,7 +57,6 @@ defmodule Gnat do
     host: "localhost",
     port: 4222,
     cluster_id: "test-cluster",
-    client_id: "gnat"
   ]
   def start_link(options \\ []) do
     options = Keyword.merge(@defaults, options) |> Enum.into(%{})
@@ -129,14 +127,14 @@ defmodule Gnat do
   ## Examples
 
       # In one process...
-      {:ok, conn} = Gnat.start_link(client_id: "server", deliver_to: self)
+      {:ok, conn} = Gnat.start_link(deliver_to: self)
       Gnat.sub(conn, "ping_server", "sid123")
       receive do
         {:nats_msg, msg} -> Gnat.pub(conn, msg.reply_to, msg.payload)
       end
 
       # In another process...
-      {:ok, conn} = Gnat.start_link(client_id: "client")
+      {:ok, conn} = Gnat.start_link
       {:ok, msg} = Gnat.req_res(conn, "ping_server", "hello world!")
       IO.puts msg.payload
       "hello world!"

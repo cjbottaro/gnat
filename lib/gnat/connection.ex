@@ -8,14 +8,7 @@ defmodule Gnat.Connection do
   alias Gnat.{Proto, Buffer}
   alias Proto.{Info, Ping, Pong, Msg}
 
-  @defaults [
-    host: "localhost",
-    port: 4222,
-    cluster_id: "test-cluster",
-    client_id: "gnat"
-  ]
   def start_link(options) do
-    options = Keyword.merge(@defaults, options) |> Enum.into(%{})
     Connection.start_link(__MODULE__, Enum.into(options, %{}))
   end
 
