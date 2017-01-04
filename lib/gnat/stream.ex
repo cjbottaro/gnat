@@ -158,4 +158,10 @@ defmodule Gnat.Stream do
     GenServer.call(conn, {:publish, topic, data, options})
   end
 
+  @doc """
+  Close the connection.
+  """
+  @spec close(conn) :: :ok
+  def close(conn), do: GenServer.stop(conn)
+
 end

@@ -16,8 +16,15 @@ defmodule Gnat.Connection do
     {:ok, socket} = :gen_tcp.connect(
       String.to_char_list(options.host),
       options.port,
-      [:binary, active: :once]
+      [:binary, active: false]
     )
+
+    # Wait for an INFO message.
+    {:ok, raw_message} = :gen_tcp.recv(socket, 0)
+    info = Proto.parse(raw_message)
+
+    # Go into async mode.
+    :inet.setopts(socket, active: :once)
 
     Proto.connect(
       verbose: false,
@@ -34,7 +41,8 @@ defmodule Gnat.Connection do
       buffer: "",
       deliver_to: nil,
       msgs: [],
-      req_res: %{},
+      req_rpl: %{},
+      info: info |> Map.from_struct
     } |> Map.merge(options)
 
     {:connect, nil, state}
@@ -71,8 +79,8 @@ defmodule Gnat.Connection do
     Proto.parse(raw_message) |> handle_message(state)
   end
 
-  def handle_message(%Info{}, state) do
-    {:noreply, state}
+  def handle_message(%Info{} = info, state) do
+    {:noreply, %{state | info: info}}
   end
 
   def handle_message(%Ping{}, state) do
@@ -84,20 +92,20 @@ defmodule Gnat.Connection do
     {:noreply, state}
   end
 
-  # If req_res has key sid, then the Msg is a part of a req/res cycle.
-  # If req_res[sid] is nil, then no one is waiting on the result yet,
+  # If req_rpl has key sid, then the Msg is a part of a req/res cycle.
+  # If req_rpl[sid] is nil, then no one is waiting on the result yet,
   # otherwise the value is the waiter.
   def handle_message(%Msg{} = msg, state) do
-    %{req_res: req_res} = state
+    %{req_rpl: req_rpl} = state
     %{sid: sid} = msg
 
-    if Map.has_key?(req_res, sid) do
-      if waiter = req_res[sid] do
+    if Map.has_key?(req_rpl, sid) do
+      if waiter = req_rpl[sid] do
         GenServer.reply(waiter, {:ok, msg})
-        req_res = Map.delete(req_res, sid)
-        {:noreply, %{state | req_res: req_res}}
+        req_rpl = Map.delete(req_rpl, sid)
+        {:noreply, %{state | req_rpl: req_rpl}}
       else
-        {:noreply, put_in(state, [:req_res, sid], msg)}
+        {:noreply, put_in(state, [:req_rpl, sid], msg)}
       end
     else
       if state.deliver_to do
@@ -112,19 +120,19 @@ defmodule Gnat.Connection do
   # Mark the sid as a part of a req/res cycle.
   # See comment on handle_message(%Msg{}, state).
   def handle_call({:request, sid}, _from, state) do
-    {:reply, :ok, put_in(state, [:req_res, sid], nil)}
+    {:reply, :ok, put_in(state, [:req_rpl, sid], nil)}
   end
 
   # Return the response of a req/res cycle, or block if it's not ready.
   # See comment on handle_message(%Msg{}, state).
   def handle_call({:response, sid}, from, state) do
-    %{req_res: req_res} = state
+    %{req_rpl: req_rpl} = state
 
-    if response = req_res[sid] do
-      req_res = Map.delete(req_res, sid)
-      {:reply, {:ok, response}, %{state | req_res: req_res}}
+    if response = req_rpl[sid] do
+      req_rpl = Map.delete(req_rpl, sid)
+      {:reply, {:ok, response}, %{state | req_rpl: req_rpl}}
     else
-      {:noreply, put_in(state, [:req_res, sid], from)}
+      {:noreply, put_in(state, [:req_rpl, sid], from)}
     end
   end
 
@@ -138,6 +146,11 @@ defmodule Gnat.Connection do
     msg = List.last(msgs)
     msgs = List.delete_at(msgs, -1)
     {:reply, msg, %{state | msgs: msgs}}
+  end
+
+  def handle_call(:info, _from, state) do
+    %{info: info} = state
+    {:reply, info, state}
   end
 
   defp transmit(raw_message, socket) do

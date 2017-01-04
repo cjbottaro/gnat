@@ -30,6 +30,11 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
   * NATS Streaming
   * Request/reply API
 
+## Server Version Requirements
+
+  * NATS > 0.0.0 ???
+  * NATS Streaming >= 0.3.7
+
 ## Quickstart - NATS
 
 ```elixir
@@ -60,7 +65,7 @@ GenServer.stop(conn)
 
 The NATS protocol allows for [request/reply messaging](https://nats.io/documentation/concepts/nats-req-rep/).
 
-`Gnat` makes this very easy to use with `Gnat.req_res/3`. We can demonstrate by
+`Gnat` makes this very easy to use with `Gnat.req_rpl/3`. We can demonstrate by
 writing a ping server.
 
 Server
@@ -79,9 +84,9 @@ end)
 Client
 ```elixir
 {:ok, conn} = Gnat.start_link
-{:ok, res} = Gnat.req_res(conn, "ping", "hello")
+{:ok, res} = Gnat.req_rpl(conn, "ping", "hello")
 IO.puts res.payload # => "hello"
-{:ok, res} = Gnat.req_res(conn, "ping", "goodbye")
+{:ok, res} = Gnat.req_rpl(conn, "ping", "goodbye")
 IO.puts res.payload # => "goodbye"
 ```
 
@@ -89,3 +94,4 @@ IO.puts res.payload # => "goodbye"
 
   * Authentication
   * one-to-many request/reply
+  * Test suite

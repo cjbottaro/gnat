@@ -135,16 +135,16 @@ defmodule Gnat do
 
       # In another process...
       {:ok, conn} = Gnat.start_link
-      {:ok, msg} = Gnat.req_res(conn, "ping_server", "hello world!")
+      {:ok, msg} = Gnat.req_rpl(conn, "ping_server", "hello world!")
       IO.puts msg.payload
       "hello world!"
       :ok
 
   """
-  @spec req_res(conn, String.t, String.t) :: {:ok, Gnat.Proto.Msg.t}
-  def req_res(conn, subject, payload) do
+  @spec req_rpl(conn, String.t, String.t) :: {:ok, Gnat.Proto.Msg.t}
+  def req_rpl(conn, subject, payload) do
     sid = new_sid
-    temp_inbox = "req_res.#{sid}"
+    temp_inbox = "req_rpl.#{sid}"
 
     # Let our connection know that messages from sid are part of a
     # request/response. We have to do this *before* subscribing otherwise
@@ -170,5 +170,17 @@ defmodule Gnat do
   """
   @spec next_msg(conn) :: Gnat.Proto.Msg.t | nil
   def next_msg(conn), do: GenServer.call(conn, :next_msg)
+
+  @doc """
+  Get server info.
+  """
+  @spec info(conn) :: map
+  def info(conn), do: GenServer.call(conn, :info)
+
+  @doc """
+  Close the connection.
+  """
+  @spec close(conn) :: :ok
+  def close(conn), do: GenServer.stop(conn)
 
 end
