@@ -1,6 +1,7 @@
 require Logger
 
 defmodule Gnat.Proto do
+  @moduledoc false
 
   def parse(message) do
     op = String.split(message, " ")

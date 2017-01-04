@@ -1,6 +1,8 @@
 require Logger
 
 defmodule Gnat.Stream.Connection do
+  @moduledoc false
+
   use Connection
 
   alias Gnat.Stream.Proto
@@ -164,7 +166,7 @@ defmodule Gnat.Stream.Connection do
   def handle_message(%MsgProto{} = msg_proto, state) do
     Logger.debug "<<- MsgProto (#{msg_proto.subject}): #{msg_proto.data}"
     if state.deliver_to do
-      send(state.deliver_to, {:nats_streaming_msg, msg_proto})
+      send(state.deliver_to, {:nats_stream_msg, msg_proto})
       {:noreply, state}
     else
       %{msg_protos: msg_protos} = state

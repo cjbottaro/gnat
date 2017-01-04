@@ -1,5 +1,6 @@
 defmodule Gnat.Buffer do
-
+  @moduledoc false
+  
   def process(buffer, messages \\ []) do
     {message, buffer} = process_single(buffer)
     if message do

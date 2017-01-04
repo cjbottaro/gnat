@@ -1,4 +1,6 @@
 defmodule Gnat.Stream.Subscription do
+  @moduledoc false
+  
   defstruct [:topic, :inbox, :inbox_sid, :ack_inbox]
 
   alias Gnat.Stream.Protobuf.{StartPosition}

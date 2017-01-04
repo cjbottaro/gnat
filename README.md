@@ -1,6 +1,6 @@
 # Gnat
 
-**TODO: Add description**
+Connect to and interact with NATS and/or NATS Streaming servers.
 
 ## Installation
 
@@ -22,3 +22,70 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
     end
     ```
 
+## Features
+
+  * Documentation
+    * [NATS](Gnat.html)
+    * [NATS Streaming](Gnat.Stream.html)
+  * NATS Streaming
+  * Request/reply API
+
+## Quickstart - NATS
+
+```elixir
+{:ok, conn} = Gnat.start_link(deliver_to: self)
+Gnat.sub(conn, "foo", "sid123")
+Gnat.pub(conn, "foo", "hello!")
+receive do
+  {:nats_msg, msg} -> IO.puts "#{msg.subject}: #{msg.payload}"
+end
+GenServer.stop(conn)
+```
+
+## Quickstart - NATS Streaming
+
+```elixir
+{:ok, conn} = Gnat.Stream.start_link(deliver_to: self)
+Gnat.Stream.subscribe(conn, "foo")
+Gnat.Stream.publish(conn, "foo", "hello!")
+receive do
+  {:nats_stream_msg, msg} ->
+    IO.puts "#{msg.subject}: #{msg.data}"
+    Gnat.Stream.ack(conn, msg)
+end
+GenServer.stop(conn)
+```
+
+## Request/Reply
+
+The NATS protocol allows for [request/reply messaging](https://nats.io/documentation/concepts/nats-req-rep/).
+
+Gnat makes this very easy to use with `Gnat.req_res/3`. We can demonstrate by
+writing a ping server.
+
+Server
+```elixir
+{:ok, conn} = Gnat.start_link(client_id: "server", deliver_to: self)
+Gnat.sub(conn, "ping", Gnat.new_sid)
+Stream.repeatedly(fn ->
+  receive do
+    {:nats_msg, msg} -> msg
+  end
+end) |> Enum.each(fn msg ->
+  Gnat.pub(conn, msg.reply_to, msg.payload)
+end)
+```
+
+Client
+```elixir
+{:ok, conn} = Gnat.start_link(client_id: "client")
+{:ok, res} = Gnat.req_res(conn, "ping", "hello")
+IO.puts res.payload # => "hello"
+{:ok, res} = Gnat.req_res(conn, "ping", "goodbye")
+IO.puts res.payload # => "goodbye"
+```
+
+## TODO
+
+  * Authentication
+  * one-to-many request/reply

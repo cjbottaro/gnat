@@ -8,7 +8,7 @@ defmodule Runner do
 
   def loop(pid) do
     receive do
-      {:nats_streaming_msg, proto} ->
+      {:nats_stream_msg, proto} ->
         IO.puts "#{proto.subject} -> #{proto.data}"
         Gnat.Stream.ack(pid, proto)
     end

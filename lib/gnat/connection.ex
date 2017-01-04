@@ -1,6 +1,8 @@
 require Logger
 
 defmodule Gnat.Connection do
+  @moduledoc false
+
   use Connection
 
   alias Gnat.{Proto, Buffer}

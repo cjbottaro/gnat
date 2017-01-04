@@ -1,4 +1,5 @@
 defmodule Gnat.Stream.Proto do
+  @moduledoc false
 
   alias Gnat.Stream.Protobuf
   alias __MODULE__.{Heartbeat, MsgProto}
@@ -11,13 +12,18 @@ defmodule Gnat.Stream.Proto do
         |> apply(:record, [])
         |> Keyword.keys
         |> Enum.map(fn attribute ->
-          attribute
-            |> Atom.to_string
-            |> Macro.underscore
-            |> String.to_atom
+          case attribute do
+            :CRC32 -> :crc32
+            _ ->
+            attribute
+              |> Atom.to_string
+              |> Macro.underscore
+              |> String.to_atom
+          end
         end)
       defstruct [:nats_msg | attributes]
 
+      @doc false
       def new(nats_msg) do
         # Get the protobuf module.
         name = __MODULE__ |> Atom.to_string |> String.split(".") |> List.last
@@ -29,7 +35,11 @@ defmodule Gnat.Stream.Proto do
 
         # Underscore the attributes.
         attributes = Enum.map(record, fn {k, v} ->
-          {k |> Atom.to_string |> Macro.underscore |> String.to_atom, v}
+          k = case k do
+            :CRC32 -> :crc32
+            _ -> k |> Atom.to_string |> Macro.underscore |> String.to_atom
+          end
+          {k, v}
         end)
 
         # Put the nats message in.
