@@ -128,14 +128,14 @@ defmodule Gnat do
 
       # In one process...
       {:ok, conn} = Gnat.start_link(deliver_to: self)
-      Gnat.sub(conn, "ping_server", "sid123")
+      Gnat.sub(conn, "echo_server", "sid123")
       receive do
         {:nats_msg, msg} -> Gnat.pub(conn, msg.reply_to, msg.payload)
       end
 
       # In another process...
       {:ok, conn} = Gnat.start_link
-      {:ok, msg} = Gnat.req_rpl(conn, "ping_server", "hello world!")
+      {:ok, msg} = Gnat.req_rpl(conn, "echo_server", "hello world!")
       IO.puts msg.payload
       "hello world!"
       :ok

@@ -66,12 +66,12 @@ GenServer.stop(conn)
 The NATS protocol allows for [request/reply messaging](https://nats.io/documentation/concepts/nats-req-rep/).
 
 `Gnat` makes this very easy to use with `Gnat.req_rpl/3`. We can demonstrate by
-writing a ping server.
+writing a echo server.
 
 Server
 ```elixir
 {:ok, conn} = Gnat.start_link(deliver_to: self)
-Gnat.sub(conn, "ping", Gnat.new_sid)
+Gnat.sub(conn, "echo", Gnat.new_sid)
 Stream.repeatedly(fn ->
   receive do
     {:nats_msg, msg} -> msg
@@ -84,9 +84,9 @@ end)
 Client
 ```elixir
 {:ok, conn} = Gnat.start_link
-{:ok, res} = Gnat.req_rpl(conn, "ping", "hello")
+{:ok, res} = Gnat.req_rpl(conn, "echo", "hello")
 IO.puts res.payload # => "hello"
-{:ok, res} = Gnat.req_rpl(conn, "ping", "goodbye")
+{:ok, res} = Gnat.req_rpl(conn, "echo", "goodbye")
 IO.puts res.payload # => "goodbye"
 ```
 
