@@ -58,7 +58,7 @@ receive do
     IO.puts "#{msg.subject}: #{msg.data}"
     Gnat.Stream.ack(conn, msg)
 end
-Gnat.close(conn)
+Gnat.Stream.close(conn)
 ```
 
 ## Request/Reply
@@ -88,7 +88,7 @@ Client
 IO.puts reply.payload # => "hello"
 {:ok, res} = Gnat.request(conn, "echo", "goodbye")
 IO.puts reply.payload # => "goodbye"
-Gnat.Stream.close(conn)
+Gnat.close(conn)
 ```
 
 ## TODO
