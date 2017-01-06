@@ -32,7 +32,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 
 ## Server Version Requirements
 
-  * NATS > 0.0.0 ???
+  * NATS >= 0.9.0 (I think)
   * NATS Streaming >= 0.3.7
 
 ## Quickstart - NATS
@@ -94,4 +94,3 @@ IO.puts reply.payload # => "goodbye"
 
   * Authentication
   * one-to-many request/reply
-  * Test suite
