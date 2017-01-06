@@ -44,7 +44,7 @@ Gnat.pub(conn, "foo", "hello!")
 receive do
   {:nats_msg, msg} -> IO.puts "#{msg.subject}: #{msg.payload}"
 end
-GenServer.stop(conn)
+Gnat.close(conn)
 ```
 
 ## Quickstart - NATS Streaming
@@ -58,7 +58,7 @@ receive do
     IO.puts "#{msg.subject}: #{msg.data}"
     Gnat.Stream.ack(conn, msg)
 end
-GenServer.stop(conn)
+Gnat.close(conn)
 ```
 
 ## Request/Reply
@@ -88,6 +88,7 @@ Client
 IO.puts reply.payload # => "hello"
 {:ok, res} = Gnat.request(conn, "echo", "goodbye")
 IO.puts reply.payload # => "goodbye"
+Gnat.Stream.close(conn)
 ```
 
 ## TODO
