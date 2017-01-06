@@ -41,7 +41,7 @@ defmodule Gnat.Connection do
       buffer: "",
       deliver_to: nil,
       msgs: [],
-      req_rpl: %{},
+      requests: %{},
       info: info |> Map.from_struct
     } |> Map.merge(options)
 
@@ -92,20 +92,20 @@ defmodule Gnat.Connection do
     {:noreply, state}
   end
 
-  # If req_rpl has key sid, then the Msg is a part of a req/res cycle.
-  # If req_rpl[sid] is nil, then no one is waiting on the result yet,
+  # If requests has key sid, then the Msg is a part of a req/rpl cycle.
+  # If requests[sid] is nil, then no one is waiting on the result yet,
   # otherwise the value is the waiter.
   def handle_message(%Msg{} = msg, state) do
-    %{req_rpl: req_rpl} = state
+    %{requests: requests} = state
     %{sid: sid} = msg
 
-    if Map.has_key?(req_rpl, sid) do
-      if waiter = req_rpl[sid] do
+    if Map.has_key?(requests, sid) do
+      if waiter = requests[sid] do
         GenServer.reply(waiter, {:ok, msg})
-        req_rpl = Map.delete(req_rpl, sid)
-        {:noreply, %{state | req_rpl: req_rpl}}
+        requests = Map.delete(requests, sid)
+        {:noreply, %{state | requests: requests}}
       else
-        {:noreply, put_in(state, [:req_rpl, sid], msg)}
+        {:noreply, put_in(state, [:requests, sid], msg)}
       end
     else
       if state.deliver_to do
@@ -117,22 +117,22 @@ defmodule Gnat.Connection do
     end
   end
 
-  # Mark the sid as a part of a req/res cycle.
+  # Mark the sid as a part of a req/rpl cycle.
   # See comment on handle_message(%Msg{}, state).
   def handle_call({:request, sid}, _from, state) do
-    {:reply, :ok, put_in(state, [:req_rpl, sid], nil)}
+    {:reply, :ok, put_in(state, [:requests, sid], nil)}
   end
 
   # Return the response of a req/res cycle, or block if it's not ready.
   # See comment on handle_message(%Msg{}, state).
   def handle_call({:response, sid}, from, state) do
-    %{req_rpl: req_rpl} = state
+    %{requests: requests} = state
 
-    if response = req_rpl[sid] do
-      req_rpl = Map.delete(req_rpl, sid)
-      {:reply, {:ok, response}, %{state | req_rpl: req_rpl}}
+    if response = requests[sid] do
+      requests = Map.delete(requests, sid)
+      {:reply, {:ok, response}, %{state | requests: requests}}
     else
-      {:noreply, put_in(state, [:req_rpl, sid], from)}
+      {:noreply, put_in(state, [:requests, sid], from)}
     end
   end
 

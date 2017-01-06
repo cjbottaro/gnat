@@ -29,7 +29,7 @@ defmodule Gnat.Stream.Connection do
     # Make the connection request syncronously.
     Logger.debug "->> ConnectRequest"
     connect_request = Proto.connect_request(clientID: client_id, heartbeatInbox: heart_inbox)
-    {:ok, nats_msg} = Gnat.req_rpl(conn, "#{discover_prefix}.#{cluster_id}", connect_request)
+    {:ok, nats_msg} = Gnat.request(conn, "#{discover_prefix}.#{cluster_id}", connect_request)
     response = ConnectResponse.new(nats_msg)
     connect_attributes = %{
       close_requests: response.close_requests,
@@ -62,7 +62,7 @@ defmodule Gnat.Stream.Connection do
       close_requests: close_requests
     } = state
     close_request = Proto.close_request(client_id)
-    {:ok, _} = Gnat.req_rpl(conn, close_requests, close_request)
+    {:ok, _} = Gnat.request(conn, close_requests, close_request)
     GenServer.stop(state.conn)
   end
 
@@ -81,7 +81,7 @@ defmodule Gnat.Stream.Connection do
     # Make the subscription request.
     Logger.debug "->> SubscriptionRequest (#{topic})"
     subscription_request = Proto.subscription_request(subscription, client_id, options)
-    {:ok, nats_msg} = Gnat.req_rpl(conn, sub_requests, subscription_request)
+    {:ok, nats_msg} = Gnat.request(conn, sub_requests, subscription_request)
     response = SubscriptionResponse.new(nats_msg)
     subscription = put_in(subscription.ack_inbox, response.ack_inbox)
     Logger.debug "<<- SubscriptionResponse (#{topic})"
@@ -134,7 +134,7 @@ defmodule Gnat.Stream.Connection do
 
     if options[:ack] do
       # Request/response because we want the ack.
-      {:ok, nats_msg} = Gnat.req_rpl(conn, nats_subject, pub_msg)
+      {:ok, nats_msg} = Gnat.request(conn, nats_subject, pub_msg)
       ack = PubAck.new(nats_msg)
       Logger.debug("<<- PubAck (#{ack.guid})")
     else

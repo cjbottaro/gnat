@@ -135,16 +135,16 @@ defmodule Gnat do
 
       # In another process...
       {:ok, conn} = Gnat.start_link
-      {:ok, msg} = Gnat.req_rpl(conn, "echo_server", "hello world!")
+      {:ok, msg} = Gnat.request(conn, "echo_server", "hello world!")
       IO.puts msg.payload
       "hello world!"
       :ok
 
   """
-  @spec req_rpl(conn, String.t, String.t) :: {:ok, Gnat.Proto.Msg.t}
-  def req_rpl(conn, subject, payload) do
+  @spec request(conn, String.t, String.t) :: {:ok, Gnat.Proto.Msg.t}
+  def request(conn, subject, payload) do
     sid = new_sid
-    temp_inbox = "req_rpl.#{sid}"
+    temp_inbox = "_request.#{sid}"
 
     # Let our connection know that messages from sid are part of a
     # request/response. We have to do this *before* subscribing otherwise

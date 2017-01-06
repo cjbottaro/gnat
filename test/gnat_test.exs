@@ -33,7 +33,7 @@ defmodule GnatTest do
     assert Gnat.next_msg(conn) == nil
   end
 
-  test "req_rpl" do
+  test "request" do
     server = Task.async fn ->
       {:ok, conn} = Gnat.start_link(deliver_to: self)
       Gnat.sub(conn, "foo", Gnat.new_sid)
@@ -45,7 +45,7 @@ defmodule GnatTest do
     end
 
     {:ok, conn} = Gnat.start_link(deliver_to: self)
-    {:ok, msg} = Gnat.req_rpl(conn, "foo", "bar")
+    {:ok, msg} = Gnat.request(conn, "foo", "bar")
     assert msg.payload == "bar!"
     Gnat.close(conn)
 
