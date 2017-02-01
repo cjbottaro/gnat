@@ -13,7 +13,7 @@ defmodule GnatStreamTest do
   end
 
   test "it generally works" do
-    {:ok, conn} = Gnat.Stream.start_link(deliver_to: self, client_id: "gnat_test")
+    {:ok, conn} = Gnat.Stream.start_link(deliver_to: self(), client_id: "gnat_test")
     Gnat.Stream.subscribe(conn, "foo")
     messages = [
       SecureRandom.hex(16),

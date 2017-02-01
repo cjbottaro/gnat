@@ -14,7 +14,7 @@ defmodule Gnat do
       IO.puts "\#{msg.subject}: \#{msg.payload}"
 
   Directly delivering to a process...
-      {:ok, conn} = Gnat.start_link(deliver_to: self)
+      {:ok, conn} = Gnat.start_link(deliver_to: self())
       Gnat.sub(conn, "foo", "sid123")
       receive do
         {:nats_msg, msg} -> IO.puts "\#{msg.subject}: \#{msg.payload}"
@@ -48,7 +48,7 @@ defmodule Gnat do
 
   ## Examples
 
-      {:ok, conn} = Gnat.start_link(deliver_to: self)
+      {:ok, conn} = Gnat.start_link(deliver_to: self())
       Gnat.sub(conn, "foo", "123abc")
 
   """
@@ -127,7 +127,7 @@ defmodule Gnat do
   ## Examples
 
       # In one process...
-      {:ok, conn} = Gnat.start_link(deliver_to: self)
+      {:ok, conn} = Gnat.start_link(deliver_to: self())
       Gnat.sub(conn, "echo_server", "sid123")
       receive do
         {:nats_msg, msg} -> Gnat.pub(conn, msg.reply_to, msg.payload)
@@ -143,7 +143,7 @@ defmodule Gnat do
   """
   @spec request(conn, String.t, String.t) :: {:ok, Gnat.Proto.Msg.t}
   def request(conn, subject, payload) do
-    sid = new_sid
+    sid = new_sid()
     temp_inbox = "_request.#{sid}"
 
     # Let our connection know that messages from sid are part of a

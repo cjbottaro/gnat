@@ -12,7 +12,7 @@ defmodule Gnat.Stream.Connection do
   end
 
   def init(options) do
-    {:ok, conn} = Gnat.start_link(Keyword.put(options, :deliver_to, self))
+    {:ok, conn} = Gnat.start_link(Keyword.put(options, :deliver_to, self()))
 
     options = Enum.into(options, %{})
     %{
@@ -22,7 +22,7 @@ defmodule Gnat.Stream.Connection do
     } = options
 
     # Setup and subscribe to heartbeat inbox.
-    sid = Gnat.new_sid
+    sid = Gnat.new_sid()
     heart_inbox = "Heartbeat.#{sid}"
     :ok = Gnat.sub(conn, heart_inbox, sid)
 

@@ -13,7 +13,7 @@ defmodule GnatTest do
   end
 
   test "pub sub" do
-    {:ok, conn} = Gnat.start_link(deliver_to: self)
+    {:ok, conn} = Gnat.start_link(deliver_to: self())
     Gnat.sub(conn, "foo", Gnat.new_sid)
     Gnat.pub(conn, "foo", "bar")
     msg = receive do
@@ -35,7 +35,7 @@ defmodule GnatTest do
 
   test "request" do
     server = Task.async fn ->
-      {:ok, conn} = Gnat.start_link(deliver_to: self)
+      {:ok, conn} = Gnat.start_link(deliver_to: self())
       Gnat.sub(conn, "foo", Gnat.new_sid)
       receive do
         {:nats_msg, msg} ->
@@ -44,7 +44,7 @@ defmodule GnatTest do
       Gnat.close(conn)
     end
 
-    {:ok, conn} = Gnat.start_link(deliver_to: self)
+    {:ok, conn} = Gnat.start_link(deliver_to: self())
     {:ok, msg} = Gnat.request(conn, "foo", "bar")
     assert msg.payload == "bar!"
     Gnat.close(conn)

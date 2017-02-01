@@ -38,7 +38,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 ## Quickstart - NATS
 
 ```elixir
-{:ok, conn} = Gnat.start_link(deliver_to: self)
+{:ok, conn} = Gnat.start_link(deliver_to: self())
 Gnat.sub(conn, "foo", "sid123")
 Gnat.pub(conn, "foo", "hello!")
 receive do
@@ -50,7 +50,7 @@ Gnat.close(conn)
 ## Quickstart - NATS Streaming
 
 ```elixir
-{:ok, conn} = Gnat.Stream.start_link(deliver_to: self)
+{:ok, conn} = Gnat.Stream.start_link(deliver_to: self())
 Gnat.Stream.subscribe(conn, "foo")
 Gnat.Stream.publish(conn, "foo", "hello!")
 receive do
@@ -70,7 +70,7 @@ writing a echo server.
 
 Server
 ```elixir
-{:ok, conn} = Gnat.start_link(deliver_to: self)
+{:ok, conn} = Gnat.start_link(deliver_to: self())
 Gnat.sub(conn, "echo", Gnat.new_sid)
 Stream.repeatedly(fn ->
   receive do

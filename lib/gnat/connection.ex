@@ -63,7 +63,7 @@ defmodule Gnat.Connection do
     {messages, buffer} = Buffer.process(buffer <> data)
 
     Enum.each messages, fn message ->
-      GenServer.cast(self, {:message, message})
+      GenServer.cast(self(), {:message, message})
     end
 
     state = %{state | buffer: buffer}

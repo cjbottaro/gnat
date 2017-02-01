@@ -1,7 +1,7 @@
 defmodule Runner do
 
   def run do
-    {:ok, pid} = Gnat.Stream.start_link(deliver_to: self)
+    {:ok, pid} = Gnat.Stream.start_link(deliver_to: self())
     Gnat.Stream.subscribe(pid, "foo")
     loop(pid)
   end

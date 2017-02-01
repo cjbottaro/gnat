@@ -10,7 +10,7 @@ defmodule Gnat.Stream do
 
   Delivering messages to a pid...
 
-      {:ok, conn} = Gnat.Stream.start_link(deliver_to: self)
+      {:ok, conn} = Gnat.Stream.start_link(deliver_to: self())
       Gnat.Stream.subscribe(conn, "foo")
       receive do
         {:nats_stream_msg, msg} -> Gnat.Stream.ack(conn, msg)
@@ -18,7 +18,7 @@ defmodule Gnat.Stream do
 
   Collecting messages in an internal buffer...
 
-      {:ok, conn} = Gnat.Stream.start_link(deliver_to: self)
+      {:ok, conn} = Gnat.Stream.start_link(deliver_to: self())
       Gnat.Stream.subscribe(conn, "foo")
       msg = Gnat.Stream.next_msg(conn)
       Gnat.Stream.ack(conn, msg)
@@ -113,6 +113,27 @@ defmodule Gnat.Stream do
   @spec next_msg(conn) :: Gnat.Stream.Proto.MsgProto.t | nil
   def next_msg(conn) do
     GenServer.call(conn, :next_msg)
+  end
+
+  @doc """
+  Recieve the next message and ack it.
+
+  If `start_link/1` was called without `:deliver_to` set, then any received
+  message will be stored in an internal buffer. Use this method to pop a message
+  off that buffer _and_ automatically ack it.
+
+  Equivalent to:
+
+    msg = Gnat.Stream.next_msg(conn)
+    if msg, do: Gnat.Stream.ack(conn, msg)
+    msg
+
+  """
+  @spec pop_msg(conn) :: Gnat.Stream.Proto.MsgProto.t | nil
+  def pop_msg(conn) do
+    msg = next_msg(conn)
+    if msg, do: ack(conn, msg)
+    msg
   end
 
   @doc """
